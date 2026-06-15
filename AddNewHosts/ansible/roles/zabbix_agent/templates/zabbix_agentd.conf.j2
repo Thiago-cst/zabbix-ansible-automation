@@ -1,0 +1,17 @@
+# Arquivo de configuração gerado pelo Ansible. Não edite manualmente.
+PidFile=/var/run/zabbix/zabbix_agentd.pid
+LogFile=/var/log/zabbix/zabbix_agentd.log
+LogFileSize=0
+
+# --- Configurações Essenciais ---
+
+# O IP do Zabbix Server que o AGENTE (dentro da VM) deve contatar.
+# Usando a rede NAT, é o IP especial do host.
+Server={{ zabbix_server_ip }}
+ServerActive={{ zabbix_server_ip }}
+
+# O nome do host deve ser único e idêntico ao cadastrado no Zabbix Frontend.
+# O 'inventory_hostname', pega o nome do inventário (vm01), para garantir consistência.
+Hostname={{ inventory_hostname }}
+
+Include=/etc/zabbix/zabbix_agentd.d/*.conf

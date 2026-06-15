@@ -1,0 +1,30 @@
+---
+- name: 1. CONFIGURAR - Aplicar o papel 'zabbix_agent' nos hosts
+  hosts: vm_para_monitorar
+  become: yes
+  roles:
+    - zabbix_agent
+
+- name: 2. REGISTRAR - Registrar os hosts no frontend do Zabbix
+  hosts: vm_para_monitorar
+  become: no
+  gather_facts: yes 
+  tasks:
+    - name: REGISTRAR - Garantir que o host exista no Zabbix Server via Script
+      delegate_to: localhost
+      ansible.builtin.script: >
+        zabbix_create_host.py '{{ {"user": zabbix_api_user,
+                                  "password": zabbix_api_pass,
+                                  "host_name": inventory_hostname,
+                                  "host_ip": ansible_default_ipv4.address,
+                                  "host_group": zabbix_host_group,
+                                  "template_name": zabbix_template} | to_json }}'
+      environment:
+        ZABBIX_SERVER_URL: "{{ zabbix_api_url }}"
+      register: script_result
+      changed_when: "'\"changed\": true' in script_result.stdout"
+      failed_when: "'\"failed\": true' in script_result.stdout"
+
+    - name: DEBUG - Mostrar resultado da criação do host
+      ansible.builtin.debug:
+        var: script_result.stdout | from_json

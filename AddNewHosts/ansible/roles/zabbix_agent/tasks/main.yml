@@ -1,0 +1,51 @@
+---
+# Estas são as tarefas para o papel 'zabbix_agent'
+- name: 1a. VERIFICAR - Verificar se o repositório Zabbix já está configurado
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/zabbix.list
+  register: zabbix_repo_file
+
+- name: 1b. INSTALAR - Baixar o pacote do repositório Zabbix (se necessário)
+  ansible.builtin.get_url:
+    url: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-1+ubuntu24.04_all.deb
+    dest: /tmp/zabbix-release.deb
+    mode: '0644'
+  when: not zabbix_repo_file.stat.exists
+
+- name: 1c. INSTALAR - Adicionar o repositório Zabbix ao sistema (se necessário)
+  ansible.builtin.apt:
+    deb: /tmp/zabbix-release.deb
+  when: not zabbix_repo_file.stat.exists
+
+# Aguarada o apt
+
+- name: 1d. AGUARDAR - Esperar que o apt (unattended-upgrades) seja libertado
+  ansible.builtin.shell: "while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'Aguardando lock do apt...' && sleep 5; done"
+  changed_when: false
+
+- name: 2. ATUALIZAR - Atualizar cache de pacotes e pacotes do sistema
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    autoremove: yes
+
+- name: 3. INSTALAR - Instalar o agente Zabbix
+  ansible.builtin.apt:
+    name: zabbix-agent
+    state: present
+
+- name: 4. PADRONIZAR - Configurar o hostname da VM
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: 5. CONFIGURAR - Aplicar nosso template de configuração do agente
+  ansible.builtin.template:
+    src: zabbix_agentd.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.conf
+  notify: Reiniciar serviço do agente Zabbix
+
+- name: 6. HABILITAR - Garantir que o serviço do agente Zabbix inicie com o sistema
+  ansible.builtin.service:
+    name: zabbix-agent
+    enabled: yes
+    state: started
